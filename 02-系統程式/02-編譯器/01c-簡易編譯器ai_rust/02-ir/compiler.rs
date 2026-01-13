@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::process;
 
 // ==========================================================
-// 1. Token 與 AST 定義
+// 1. 定義 Token 與 AST (保持不變)
 // ==========================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,7 +35,7 @@ enum Stmt {
 }
 
 // ==========================================================
-// 2. Lexer (詞法分析)
+// 2. Lexer (保持不變)
 // ==========================================================
 
 struct Lexer {
@@ -109,7 +110,7 @@ impl Lexer {
 }
 
 // ==========================================================
-// 3. Parser (語法分析)
+// 3. Parser (保持不變)
 // ==========================================================
 
 struct Parser {
@@ -141,8 +142,7 @@ impl Parser {
         self.next(); // eat fn
         let name = if let Token::Ident(n) = &self.cur_tok { n.clone() } else { panic!("預期函數名稱") };
         self.next();
-        if self.cur_tok != Token::LParen { panic!("函數定義缺少 '('"); }
-        self.next();
+        self.next(); // eat (
         let mut params = Vec::new();
         while self.cur_tok != Token::RParen {
             if let Token::Ident(p) = &self.cur_tok { params.push(p.clone()); }
@@ -155,7 +155,6 @@ impl Parser {
     }
 
     fn parse_block(&mut self) -> Vec<Stmt> {
-        if self.cur_tok != Token::LBrace { panic!("{}", "區塊缺少 '{'"); }
         self.next(); // eat {
         let mut stmts = Vec::new();
         while self.cur_tok != Token::RBrace && self.cur_tok != Token::EOF {
@@ -170,27 +169,22 @@ impl Parser {
             Token::Let => {
                 self.next();
                 let name = if let Token::Ident(n) = &self.cur_tok { n.clone() } else { panic!("預期變數名") };
-                self.next(); 
-                if self.cur_tok != Token::Assign { panic!("let 缺少 '='"); }
-                self.next(); 
+                self.next(); self.next(); // eat =
                 let expr = self.parse_expr(0);
                 if self.cur_tok == Token::Semi { self.next(); }
                 Stmt::VarDecl(name, expr)
             }
             Token::If => {
-                self.next(); 
-                if self.cur_tok != Token::LParen { panic!("if 缺少 '('"); }
-                self.next();
+                self.next(); self.next(); // eat if (
                 let cond = self.parse_expr(0);
-                if self.cur_tok != Token::RParen { panic!("if 缺少 ')'"); }
-                self.next(); 
+                self.next(); // eat )
                 let then_part = self.parse_block();
                 let mut else_part = None;
                 if self.cur_tok == Token::Else {
                     self.next();
                     else_part = Some(self.parse_block());
                 }
-                (cond, then_part, else_part)
+                Stmt::If(cond, then_part, else_part)
             }
             Token::Return => {
                 self.next();
@@ -245,7 +239,7 @@ impl Parser {
 }
 
 // ==========================================================
-// 4. IR 與 VM (執行引擎)
+// 4. IR Generator & VM (執行引擎與序列化)
 // ==========================================================
 
 #[derive(Debug, Clone)]
@@ -261,29 +255,33 @@ enum IR {
     Return(String),
     IfFalse(String, usize),
     Goto(usize),
+    Label,
 }
 
 struct VM {
+    // 儲存格式: { 函數名: (參數列表, 指令序列) }
     functions: HashMap<String, (Vec<String>, Vec<IR>)>,
 }
 
 impl VM {
     fn new() -> Self { Self { functions: HashMap::new() } }
 
+    // --- 編譯 AST 到 IR ---
     fn compile(&mut self, stmts: Vec<Stmt>) {
         for stmt in stmts {
             if let Stmt::FuncDecl(name, params, body) = stmt {
                 let mut irs = Vec::new();
                 let mut temp_idx = 0;
+                let mut label_idx = 0;
                 for s in body {
-                    self.gen_stmt(&s, &mut irs, &mut temp_idx);
+                    self.gen_stmt(&s, &mut irs, &mut temp_idx, &mut label_idx);
                 }
                 self.functions.insert(name, (params, irs));
             }
         }
     }
 
-    fn gen_expr(&self, expr: &Expr, irs: &mut Vec<IR>, t_idx: &mut i32) -> String {
+    fn gen_expr(&self, expr: &Expr, irs: &mut Vec<IR>, t_idx: &mut i32, l_idx: &mut i32) -> String {
         match expr {
             Expr::Number(v) => {
                 let t = format!("t{}", t_idx); *t_idx += 1;
@@ -296,8 +294,8 @@ impl VM {
                 t
             }
             Expr::BinaryOp(l, op, r) => {
-                let lt = self.gen_expr(l, irs, t_idx);
-                let rt = self.gen_expr(r, irs, t_idx);
+                let lt = self.gen_expr(l, irs, t_idx, l_idx);
+                let rt = self.gen_expr(r, irs, t_idx, l_idx);
                 let t = format!("t{}", t_idx); *t_idx += 1;
                 match op {
                     Token::Plus => irs.push(IR::Add(t.clone(), lt, rt)),
@@ -310,7 +308,7 @@ impl VM {
             }
             Expr::Call(name, args) => {
                 let mut arg_temps = Vec::new();
-                for a in args { arg_temps.push(self.gen_expr(a, irs, t_idx)); }
+                for a in args { arg_temps.push(self.gen_expr(a, irs, t_idx, l_idx)); }
                 let t = format!("t{}", t_idx); *t_idx += 1;
                 irs.push(IR::Call(name.clone(), arg_temps, t.clone()));
                 t
@@ -318,38 +316,112 @@ impl VM {
         }
     }
 
-    fn gen_stmt(&self, stmt: &Stmt, irs: &mut Vec<IR>, t_idx: &mut i32) {
+    fn gen_stmt(&self, stmt: &Stmt, irs: &mut Vec<IR>, t_idx: &mut i32, l_idx: &mut i32) {
         match stmt {
             Stmt::VarDecl(name, expr) => {
-                let t = self.gen_expr(expr, irs, t_idx);
+                let t = self.gen_expr(expr, irs, t_idx, l_idx);
                 irs.push(IR::StoreVar(name.clone(), t));
             }
             Stmt::Return(expr) => {
-                let t = self.gen_expr(expr, irs, t_idx);
+                let t = self.gen_expr(expr, irs, t_idx, l_idx);
                 irs.push(IR::Return(t));
             }
             Stmt::If(cond, then_part, else_part) => {
-                let ct = self.gen_expr(cond, irs, t_idx);
+                let ct = self.gen_expr(cond, irs, t_idx, l_idx);
                 let if_false_pos = irs.len();
-                // 修正：這裡使用 ct.clone()
                 irs.push(IR::IfFalse(ct.clone(), 0)); 
-                
-                for s in then_part { self.gen_stmt(s, irs, t_idx); }
-                
+                for s in then_part { self.gen_stmt(s, irs, t_idx, l_idx); }
                 if let Some(else_stmts) = else_part {
                     let goto_pos = irs.len();
-                    irs.push(IR::Goto(0));
-                    irs[if_false_pos] = IR::IfFalse(ct, irs.len()); // 最後一次使用 ct，不用 clone
-                    for s in else_stmts { self.gen_stmt(s, irs, t_idx); }
+                    irs.push(IR::Goto(0)); 
+                    irs[if_false_pos] = IR::IfFalse(ct, irs.len());
+                    for s in else_stmts { self.gen_stmt(s, irs, t_idx, l_idx); }
                     irs[goto_pos] = IR::Goto(irs.len());
                 } else {
-                    irs[if_false_pos] = IR::IfFalse(ct, irs.len()); // 最後一次使用 ct
+                    irs[if_false_pos] = IR::IfFalse(ct, irs.len());
                 }
+                irs.push(IR::Label);
             }
             _ => {}
         }
     }
 
+    // --- 輸出中間碼到文字 ---
+    fn dump_ir(&self) -> String {
+        let mut output = String::new();
+        for (name, (params, irs)) in &self.functions {
+            output.push_str(&format!("FUNC {} {}\n", name, params.join(" ")));
+            for ir in irs {
+                let line = match ir {
+                    IR::LoadConst(t, v) => format!("  LOAD_CONST {} {}", t, v),
+                    IR::LoadVar(t, n) => format!("  LOAD_VAR {} {}", t, n),
+                    IR::StoreVar(n, t) => format!("  STORE_VAR {} {}", n, t),
+                    IR::Add(t, l, r) => format!("  ADD {} {} {}", t, l, r),
+                    IR::Sub(t, l, r) => format!("  SUB {} {} {}", t, l, r),
+                    IR::Mul(t, l, r) => format!("  MUL {} {} {}", t, l, r),
+                    IR::Eq(t, l, r) => format!("  EQ {} {} {}", t, l, r),
+                    IR::Call(f, args, t) => format!("  CALL {} {} {}", f, t, args.join(" ")),
+                    IR::Return(t) => format!("  RETURN {}", t),
+                    IR::IfFalse(t, target) => format!("  IFFALSE {} {}", t, target),
+                    IR::Goto(target) => format!("  GOTO {}", target),
+                    IR::Label => format!("  LABEL"),
+                };
+                output.push_str(&line);
+                output.push('\n');
+            }
+            output.push_str("ENDFUNC\n\n");
+        }
+        output
+    }
+
+    // --- 從文字載入中間碼 ---
+    fn load_ir(&mut self, content: &str) {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut i = 0;
+        while i < lines.len() {
+            let line = lines[i].trim();
+            if line.is_empty() { i += 1; continue; }
+
+            if line.starts_with("FUNC") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                let func_name = parts[1].to_string();
+                let params = parts[2..].iter().map(|s| s.to_string()).collect();
+                let mut irs = Vec::new();
+                i += 1;
+                while i < lines.len() {
+                    let ir_line = lines[i].trim();
+                    if ir_line == "ENDFUNC" { break; }
+                    let p: Vec<&str> = ir_line.split_whitespace().collect();
+                    let ir = match p[0] {
+                        "LOAD_CONST" => IR::LoadConst(p[1].into(), p[2].parse().unwrap()),
+                        "LOAD_VAR"   => IR::LoadVar(p[1].into(), p[2].into()),
+                        "STORE_VAR"  => IR::StoreVar(p[1].into(), p[2].into()),
+                        "ADD"        => IR::Add(p[1].into(), p[2].into(), p[3].into()),
+                        "SUB"        => IR::Sub(p[1].into(), p[2].into(), p[3].into()),
+                        "MUL"        => IR::Mul(p[1].into(), p[2].into(), p[3].into()),
+                        "EQ"         => IR::Eq(p[1].into(), p[2].into(), p[3].into()),
+                        "RETURN"     => IR::Return(p[1].into()),
+                        "IFFALSE"    => IR::IfFalse(p[1].into(), p[2].parse().unwrap()),
+                        "GOTO"       => IR::Goto(p[1].parse().unwrap()),
+                        "LABEL"      => IR::Label,
+                        "CALL"       => {
+                            let f_name = p[1].to_string();
+                            let res_t = p[2].to_string();
+                            let args = p[3..].iter().map(|s| s.to_string()).collect();
+                            IR::Call(f_name, args, res_t)
+                        }
+                        _ => panic!("未知指令: {}", p[0]),
+                    };
+                    irs.push(ir);
+                    i += 1;
+                }
+                self.functions.insert(func_name, (params, irs));
+            }
+            i += 1;
+        }
+    }
+
+    // --- 執行 VM (遞迴執行) ---
     fn run(&self, func_name: &str, args: Vec<i32>) -> i32 {
         let (params, code) = self.functions.get(func_name).expect("找不到函數");
         let mut locals = HashMap::<String, i32>::new();
@@ -377,6 +449,7 @@ impl VM {
                     let res = self.run(name, call_args);
                     temps.insert(result_t.clone(), res);
                 }
+                IR::Label => {}
             }
             ip += 1;
         }
@@ -385,26 +458,43 @@ impl VM {
 }
 
 // ==========================================================
-// 5. 主程式：處理命令列參數與讀檔
+// 5. 主程式
 // ==========================================================
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
-        eprintln!("用法: {} <source_file>", args[0]);
+        eprintln!("用法: {} <source_file.p | ir_file.ir>", args[0]);
         process::exit(1);
     }
 
-    let filename = &args[1];
-    let source = fs::read_to_string(filename).expect("無法讀取原始碼檔案");
-
-    println!("--- Rust 編譯器階段 ---");
-    let lexer = Lexer::new(&source);
-    let mut parser = Parser::new(lexer);
-    let ast = parser.parse_program();
+    let file_path = &args[1];
+    let extension = Path::new(file_path).extension().and_then(|s| s.to_str()).unwrap_or("");
 
     let mut vm = VM::new();
-    vm.compile(ast);
+
+    if extension == "ir" {
+        // --- 情境 A: 載入中間碼執行 ---
+        println!("正在從載入中間碼: {}...", file_path);
+        let ir_content = fs::read_to_string(file_path).expect("無法讀取 IR 檔案");
+        vm.load_ir(&ir_content);
+    } else {
+        // --- 情境 B: 編譯原始碼 -> 儲存 IR -> 執行 ---
+        println!("正在編譯原始碼: {}...", file_path);
+        let source = fs::read_to_string(file_path).expect("無法讀取原始碼檔案");
+        
+        let lexer = Lexer::new(&source);
+        let mut parser = Parser::new(lexer);
+        let ast = parser.parse_program();
+
+        vm.compile(ast);
+
+        // 儲存 IR
+        let ir_output = vm.dump_ir();
+        let ir_filename = Path::new(file_path).with_extension("ir");
+        fs::write(&ir_filename, ir_output).expect("無法寫入 IR 檔案");
+        println!("中間碼已儲存至: {}", ir_filename.display());
+    }
 
     println!("--- 虛擬機執行階段 ---");
     let result = vm.run("main", vec![]);

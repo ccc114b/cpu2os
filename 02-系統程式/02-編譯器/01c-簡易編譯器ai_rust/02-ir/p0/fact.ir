@@ -1,0 +1,34 @@
+FUNC factorial n
+  LOAD_CONST t0 0
+  STORE_VAR result t0
+  LOAD_VAR t1 n
+  LOAD_CONST t2 0
+  EQ t3 t1 t2
+  IFFALSE t3 9
+  LOAD_CONST t4 1
+  STORE_VAR result t4
+  GOTO 20
+  LOAD_VAR t5 n
+  LOAD_CONST t6 1
+  SUB t7 t5 t6
+  STORE_VAR next_n t7
+  LOAD_VAR t8 next_n
+  CALL factorial t9 t8
+  STORE_VAR temp_result t9
+  LOAD_VAR t10 n
+  LOAD_VAR t11 temp_result
+  MUL t12 t10 t11
+  STORE_VAR result t12
+  LABEL
+  LOAD_VAR t13 result
+  RETURN t13
+ENDFUNC
+
+FUNC main 
+  LOAD_CONST t0 5
+  CALL factorial t1 t0
+  STORE_VAR value t1
+  LOAD_VAR t2 value
+  RETURN t2
+ENDFUNC
+
