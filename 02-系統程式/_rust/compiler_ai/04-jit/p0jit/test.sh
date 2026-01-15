@@ -1,0 +1,1 @@
+cargo run -- p0/fact.p0

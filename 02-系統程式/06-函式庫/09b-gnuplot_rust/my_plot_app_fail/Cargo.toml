@@ -1,0 +1,7 @@
+[package]
+name = "my_plot_app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gnuplot = "0.0.46"

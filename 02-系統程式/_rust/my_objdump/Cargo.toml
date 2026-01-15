@@ -1,0 +1,9 @@
+[package]
+name = "my_objdump"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+goblin = "0.9"
+capstone = "0.13"
+anyhow = "1.0"
