@@ -1,4 +1,4 @@
-use plotly::common::{Mode, Title};
+use plotly::common::Mode;
 use plotly::layout::{Axis, Layout};
 use plotly::{Plot, Scatter};
 
@@ -20,9 +20,9 @@ fn main() {
 
     // 4. 設定圖表佈局 (Layout)
     let layout = Layout::new()
-        .title(Title::new("Plotly.rs 範例圖表"))
-        .x_axis(Axis::new().title(Title::new("X 軸名稱")))
-        .y_axis(Axis::new().title(Title::new("Y 軸名稱")));
+        .title("Plotly.rs 範例圖表")
+        .x_axis(Axis::new().title("X 軸名稱"))
+        .y_axis(Axis::new().title("Y 軸名稱"));
 
     // 5. 組合圖表
     let mut plot = Plot::new();
@@ -34,8 +34,8 @@ fn main() {
     // 這會產生一個臨時 HTML 並嘗試在你的預設瀏覽器中打開
     plot.show();
 
-    // 或者，如果你只想儲存成檔案而不自動開啟，可以使用：
+    // 或者,如果你只想儲存成檔案而不自動開啟,可以使用:
     // plot.write_html("my_plot.html");
     
-    println!("圖表已產生！如果是遠端環境，請檢查專案目錄下的 HTML 檔案。");
+    println!("圖表已產生!如果是遠端環境,請檢查專案目錄下的 HTML 檔案。");
 }

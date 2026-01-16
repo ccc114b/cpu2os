@@ -1,0 +1,12 @@
+[package]
+name = "browser_control"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# chromiumoxide 核心库
+chromiumoxide = "0.8"
+# tokio 是异步运行时，必须开启 macros 和 rt-multi-thread 特性
+tokio = { version = "1", features = ["full"] }
+# futures 用于处理 handler 的 Stream (也就是错误信息里的 .next() 方法)
+futures = "0.3"

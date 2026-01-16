@@ -1,0 +1,8 @@
+[package]
+name = "pcap_demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pcap = "2.0"       # 負責與網卡互動、抓取封包
+etherparse = "0.17" # 負責將 binary 解析為可讀結構
