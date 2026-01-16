@@ -1,0 +1,18 @@
+[package]
+name = "myemu"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# ELF 檔案解析
+goblin = "0.8"
+# 系統調用與記憶體權限控制 (macOS 需要)
+libc = "0.2"
+# 跨平台記憶體映射
+memmap2 = "0.9"
+# JIT 彙編工具 (支援 ARM64 生成)
+dynasmrt = "3.0"
+dynasm = "3.0"
+
+[build-dependencies]
+dynasm = "3.0"

@@ -1,0 +1,12 @@
+[package]
+name = "sqldemo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# sqlx: 使用 sqlite 驅動，啟用 macros (型別檢查) 與 tokio 執行環境
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros"] }
+# tokio: Rust 最主流的非同步執行環境
+tokio = { version = "1", features = ["full"] }
+# dotenvy: 用來讀取 .env 檔案中的資料庫路徑
+dotenvy = "0.15"

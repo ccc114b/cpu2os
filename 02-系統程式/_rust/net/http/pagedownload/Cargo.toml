@@ -1,0 +1,10 @@
+[package]
+name = "pagedownload"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# reqwest 用於發送 HTTP 請求
+# tokio 是非同步執行時期
+reqwest = { version = "0.11", features = ["blocking"] } # 這裡示範簡單的同步版本
+tokio = { version = "1", features = ["full"] }
