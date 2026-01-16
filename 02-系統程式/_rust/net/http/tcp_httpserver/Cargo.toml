@@ -1,0 +1,9 @@
+[package]
+name = "tcp_httpserver"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# tokio: 非同步運行時
+# features = ["full"]: 啟用所有功能（包含網路、檔案 IO、時間等）
+tokio = { version = "1", features = ["full"] }
