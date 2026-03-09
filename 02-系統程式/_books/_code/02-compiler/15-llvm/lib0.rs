@@ -1,6 +1,10 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::CStr;
+use std::io::{self, Write};
 use std::os::raw::c_char;
+use std::process;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // 為了對接 C ABI (LLVM)，我們將 Array 和 Dict 內部也改為儲存指標 (*mut Value)
 #[derive(Clone)]
@@ -73,6 +77,10 @@ unsafe fn deref_val<'a>(ptr: *mut Value) -> &'a mut Value {
     } else {
         &mut *ptr
     }
+}
+
+thread_local! {
+    static PRINT_BUF: RefCell<Vec<String>> = RefCell::new(Vec::new());
 }
 
 // ==========================================
@@ -194,13 +202,169 @@ pub unsafe extern "C" fn rt_is_truthy(v: *mut Value) -> bool {
     deref_val(v).is_truthy()
 }
 
-// 系統呼叫：Print (為了簡化，先實作單參數 print，C ABI 允許忽略多餘參數)
 #[no_mangle]
-pub unsafe extern "C" fn print(v: *mut Value) -> *mut Value {
-    if !v.is_null() {
-        println!("[程式輸出] >> {}", deref_val(v).to_string());
-    } else {
-        println!("[程式輸出] >> null");
+pub unsafe extern "C" fn p0_len(v: *mut Value) -> *mut Value {
+    let n = match deref_val(v) {
+        Value::Array(arr) => arr.len(),
+        Value::Dict(dict) => dict.len(),
+        Value::String(s) => s.len(),
+        _ => 0,
+    };
+    alloc_value(Value::Int(n as i64))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_array(len_v: *mut Value, default_v: *mut Value) -> *mut Value {
+    let len = deref_val(len_v).to_int().max(0) as usize;
+    let default_val = deref_val(default_v).clone();
+    let mut arr = Vec::with_capacity(len);
+    for _ in 0..len {
+        arr.push(alloc_value(default_val.clone()));
+    }
+    alloc_value(Value::Array(arr))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_push(arr_v: *mut Value, item_v: *mut Value) -> *mut Value {
+    if let Value::Array(arr) = deref_val(arr_v) {
+        arr.push(item_v);
+    }
+    alloc_value(Value::Null)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_pop(arr_v: *mut Value) -> *mut Value {
+    if let Value::Array(arr) = deref_val(arr_v) {
+        if let Some(v) = arr.pop() {
+            return v;
+        }
+    }
+    alloc_value(Value::Null)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_keys(dict_v: *mut Value) -> *mut Value {
+    if let Value::Dict(dict) = deref_val(dict_v) {
+        let mut out = Vec::with_capacity(dict.len());
+        for k in dict.keys() {
+            out.push(alloc_value(Value::String(k.clone())));
+        }
+        return alloc_value(Value::Array(out));
+    }
+    alloc_value(Value::Null)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_has_key(dict_v: *mut Value, key_v: *mut Value) -> *mut Value {
+    if let Value::Dict(dict) = deref_val(dict_v) {
+        let has = dict.contains_key(&deref_val(key_v).to_string());
+        return alloc_value(Value::Int(if has { 1 } else { 0 }));
     }
     alloc_value(Value::Int(0))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_remove(dict_v: *mut Value, key_v: *mut Value) -> *mut Value {
+    if let Value::Dict(dict) = deref_val(dict_v) {
+        dict.remove(&deref_val(key_v).to_string());
+    }
+    alloc_value(Value::Null)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_typeof(v: *mut Value) -> *mut Value {
+    let t = match deref_val(v) {
+        Value::Null => "null",
+        Value::Int(_) => "int",
+        Value::Float(_) => "float",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Dict(_) => "dict",
+    };
+    alloc_value(Value::String(t.to_string()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_int(v: *mut Value) -> *mut Value {
+    alloc_value(Value::Int(deref_val(v).to_int()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_str(v: *mut Value) -> *mut Value {
+    alloc_value(Value::String(deref_val(v).to_string()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_ord(v: *mut Value) -> *mut Value {
+    if let Value::String(s) = deref_val(v) {
+        if let Some(c) = s.chars().next() {
+            return alloc_value(Value::Int(c as u32 as i64));
+        }
+    }
+    alloc_value(Value::Int(0))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_chr(v: *mut Value) -> *mut Value {
+    let code = deref_val(v).to_int() as u32;
+    if let Some(c) = char::from_u32(code) {
+        return alloc_value(Value::String(c.to_string()));
+    }
+    alloc_value(Value::String(String::new()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_time() -> *mut Value {
+    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
+    alloc_value(Value::Float(t))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_random() -> *mut Value {
+    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let r = (t % 1000) as f64 / 1000.0;
+    alloc_value(Value::Float(r))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_input(prompt: *mut Value) -> *mut Value {
+    if !prompt.is_null() {
+        print!("{}", deref_val(prompt).to_string());
+        io::stdout().flush().ok();
+    }
+    let mut line = String::new();
+    if io::stdin().read_line(&mut line).is_err() {
+        return alloc_value(Value::String(String::new()));
+    }
+    alloc_value(Value::String(line.trim_end().to_string()))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn p0_exit(code: *mut Value) -> *mut Value {
+    let c = if code.is_null() { 0 } else { deref_val(code).to_int() as i32 };
+    process::exit(c);
+}
+
+#[no_mangle]
+pub extern "C" fn rt_print_begin() {
+    PRINT_BUF.with(|buf| buf.borrow_mut().clear());
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rt_print_arg(v: *mut Value) {
+    let out = if v.is_null() { "null".to_string() } else { deref_val(v).to_string() };
+    PRINT_BUF.with(|buf| buf.borrow_mut().push(out));
+}
+
+#[no_mangle]
+pub extern "C" fn rt_print_end() -> *mut Value {
+    PRINT_BUF.with(|buf| println!("{}", buf.borrow().join(" ")));
+    alloc_value(Value::Int(0))
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn print(v: *mut Value) -> *mut Value {
+    rt_print_begin();
+    rt_print_arg(v);
+    rt_print_end()
 }

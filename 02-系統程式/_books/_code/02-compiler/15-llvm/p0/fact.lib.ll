@@ -18,22 +18,6 @@ declare i1 @rt_is_truthy(ptr)
 declare void @rt_print_begin()
 declare void @rt_print_arg(ptr)
 declare ptr @rt_print_end()
-declare ptr @p0_len(ptr)
-declare ptr @p0_time()
-declare ptr @p0_array(ptr, ptr)
-declare ptr @p0_push(ptr, ptr)
-declare ptr @p0_pop(ptr)
-declare ptr @p0_keys(ptr)
-declare ptr @p0_has_key(ptr, ptr)
-declare ptr @p0_remove(ptr, ptr)
-declare ptr @p0_typeof(ptr)
-declare ptr @p0_int(ptr)
-declare ptr @p0_str(ptr)
-declare ptr @p0_ord(ptr)
-declare ptr @p0_chr(ptr)
-declare ptr @p0_random()
-declare ptr @p0_input(ptr)
-declare ptr @p0_exit(ptr)
 
 ; === External System Calls ===
 
@@ -46,14 +30,14 @@ declare ptr @p0_exit(ptr)
 
 define ptr @fact(ptr %arg_n) {
 entry:
-  %ptr_t6 = alloca ptr
-  %ptr_t1 = alloca ptr
   %ptr_t5 = alloca ptr
   %ptr_n = alloca ptr
-  %ptr_t2 = alloca ptr
+  %ptr_t6 = alloca ptr
   %ptr_t3 = alloca ptr
-  %ptr_t7 = alloca ptr
   %ptr_t4 = alloca ptr
+  %ptr_t7 = alloca ptr
+  %ptr_t2 = alloca ptr
+  %ptr_t1 = alloca ptr
   store ptr %arg_n, ptr %ptr_n
   %tmp.1 = call ptr @rt_imm(i64 2)
   store ptr %tmp.1, ptr %ptr_t1
@@ -91,16 +75,16 @@ L1:
 
 define ptr @__init__() {
 entry:
-  %ptr_t17 = alloca ptr
-  %ptr_t8 = alloca ptr
-  %ptr_t11 = alloca ptr
   %ptr_t15 = alloca ptr
-  %ptr_t9 = alloca ptr
-  %ptr_t10 = alloca ptr
-  %ptr_t12 = alloca ptr
-  %ptr_t14 = alloca ptr
+  %ptr_t11 = alloca ptr
   %ptr_t13 = alloca ptr
+  %ptr_t8 = alloca ptr
+  %ptr_t17 = alloca ptr
+  %ptr_t10 = alloca ptr
+  %ptr_t14 = alloca ptr
   %ptr_t16 = alloca ptr
+  %ptr_t9 = alloca ptr
+  %ptr_t12 = alloca ptr
   %tmp.1 = call ptr @rt_load_str(ptr @str.0)
   store ptr %tmp.1, ptr %ptr_t8
   %tmp.2 = load ptr, ptr %ptr_t8
@@ -137,12 +121,4 @@ entry:
   %tmp.18 = call ptr @rt_print_end()
   store ptr %tmp.18, ptr %ptr_t17
   ret ptr null
-}
-
-; === Program Entry ===
-
-define i32 @main() {
-entry:
-  %tmp.entry = call ptr @__init__()
-  ret i32 0
 }

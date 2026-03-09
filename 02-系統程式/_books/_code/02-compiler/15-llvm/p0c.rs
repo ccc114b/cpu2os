@@ -174,10 +174,11 @@ pub struct Parser {
     loop_stack: Vec<LoopCtx>,
     t_idx: usize,
     label_idx: usize, // 新增：用於產生唯一標籤 (L1, L2...)
+    debug: bool,
 }
 
 impl Parser {
-    pub fn new(lexer: Lexer) -> Self {
+    pub fn new(lexer: Lexer, debug: bool) -> Self {
         Parser { 
             lexer, 
             quads: Vec::new(), 
@@ -185,6 +186,7 @@ impl Parser {
             loop_stack: Vec::new(), 
             t_idx: 0,
             label_idx: 0,
+            debug,
         }
     }
 
@@ -213,8 +215,9 @@ impl Parser {
     fn emit(&mut self, op: &str, a1: &str, a2: &str, res: &str) -> usize {
         let idx = self.quads.len();
         self.quads.push(Quad { op: op.to_string(), arg1: a1.to_string(), arg2: a2.to_string(), result: res.to_string() });
-        // 為了讓 CLI 輸出乾淨，編譯器在此仍可顯示進度
-        println!("{:03}: {:<12} {:<10} {:<10} {:<10}", idx, op, a1, a2, res);
+        if self.debug {
+            println!("{:03}: {:<12} {:<10} {:<10} {:<10}", idx, op, a1, a2, res);
+        }
         idx
     }
 
@@ -503,6 +506,49 @@ impl Parser {
                 self.expect(TokenType::RBrace, "預期 '}'");
                 self.loop_stack.pop();
             }
+            TokenType::For => {
+                self.consume();
+                self.expect(TokenType::LParen, "預期 '('");
+
+                // for 初始化區塊 (可省略)
+                if self.cur().t_type != TokenType::Semicolon {
+                    self.expr_or_assign();
+                }
+                self.expect(TokenType::Semicolon, "預期 ';'");
+
+                let l_cond = self.new_label();
+                let l_body = self.new_label();
+                let l_update = self.new_label();
+                let l_end = self.new_label();
+
+                // 條件判斷區
+                self.emit("LABEL", &l_cond, "-", "-");
+                if self.cur().t_type != TokenType::Semicolon {
+                    let cond = self.expression();
+                    self.emit("JMP_F", &cond, "-", &l_end);
+                }
+                self.expect(TokenType::Semicolon, "預期 ';'");
+                self.emit("JMP", "-", "-", &l_body);
+
+                // 更新區塊 (for 的 continue 會跳到這裡)
+                self.emit("LABEL", &l_update, "-", "-");
+                if self.cur().t_type != TokenType::RParen {
+                    self.expr_or_assign();
+                }
+                self.expect(TokenType::RParen, "預期 ')'");
+                self.emit("JMP", "-", "-", &l_cond);
+
+                self.expect(TokenType::LBrace, "預期 '{'");
+                self.emit("LABEL", &l_body, "-", "-");
+                self.loop_stack.push(LoopCtx { break_label: l_end.clone(), continue_label: l_update.clone() });
+                while self.cur().t_type != TokenType::RBrace && self.cur().t_type != TokenType::Eof {
+                    self.statement();
+                }
+                self.emit("JMP", "-", "-", &l_update);
+                self.emit("LABEL", &l_end, "-", "-");
+                self.expect(TokenType::RBrace, "預期 '}'");
+                self.loop_stack.pop();
+            }
             TokenType::Break => {
                 self.consume(); self.expect(TokenType::Semicolon, "預期 ';'");
                 if let Some(ctx) = self.loop_stack.last() {
@@ -567,17 +613,26 @@ impl Parser {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    // 檢查參數數量，現在只需要至少 2 個參數 (執行檔 + 來源檔)
-    if args.len() < 2 {
-        println!("用法: {} <source_file.p0> [output_file.ir0]", args[0]);
+    let mut debug = false;
+    let mut positional: Vec<String> = Vec::new();
+    for arg in args.iter().skip(1) {
+        if arg == "-d" {
+            debug = true;
+        } else {
+            positional.push(arg.clone());
+        }
+    }
+
+    if positional.is_empty() {
+        println!("用法: {} [-d] <source_file.p0> [output_file.ir0]", args[0]);
         process::exit(1);
     }
     
-    let source_file = &args[1];
+    let source_file = &positional[0];
     
     // 決定輸出檔名：有提供就用提供的，沒提供就把來源檔名換成 .ir0
-    let output_file = if args.len() >= 3 {
-        args[2].clone()
+    let output_file = if positional.len() >= 2 {
+        positional[1].clone()
     } else {
         std::path::Path::new(source_file)
             .with_extension("ir0")
@@ -589,7 +644,7 @@ fn main() {
     
     println!("=== 開始編譯 ===");
     let lexer = Lexer::new(source_code);
-    let mut parser = Parser::new(lexer);
+    let mut parser = Parser::new(lexer, debug);
     parser.parse_program();
     
     // 建立輸出檔案，使用我們剛剛決定好的 output_file

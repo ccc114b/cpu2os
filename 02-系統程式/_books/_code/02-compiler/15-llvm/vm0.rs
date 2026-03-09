@@ -245,7 +245,7 @@ impl VM {
         let mut pc = 0;
         let mut param_stack: Vec<Value> = Vec::new();
 
-        println!("\n=== VM 執行開始 ===");
+        // println!("\n=== VM 執行開始 ===");
         while pc < self.quads.len() {
             let q = self.quads[pc].clone();
 
@@ -402,7 +402,7 @@ impl VM {
             }
             pc += 1;
         }
-        println!("=== VM 執行完畢 ===");
+        // println!("=== VM 執行完畢 ===");
     }
 }
 
