@@ -1,73 +1,10 @@
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::env;
-use std::fmt;
-use std::fs;
-use std::io::{self, Write};
+use std::fs::{self, File};
+use std::io::Write;
 use std::process;
-use std::rc::Rc;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 // =========================================================
-// 1. 核心資料結構與動態型別 (Value)
-// =========================================================
-
-#[derive(Clone)]
-pub enum Value {
-    Null,
-    Int(i64),
-    Float(f64),
-    String(String),
-    Array(Rc<RefCell<Vec<Value>>>),
-    Dict(Rc<RefCell<HashMap<String, Value>>>),
-}
-
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Value::Null => write!(f, "null"),
-            Value::Int(n) => write!(f, "{}", n),
-            Value::Float(n) => write!(f, "{}", n),
-            Value::String(s) => write!(f, "{}", s),
-            Value::Array(arr) => {
-                let vec = arr.borrow();
-                let strs: Vec<String> = vec.iter().map(|v| v.to_string()).collect();
-                write!(f, "[{}]", strs.join(", "))
-            }
-            Value::Dict(dict) => {
-                let map = dict.borrow();
-                let strs: Vec<String> = map.iter().map(|(k, v)| format!("'{}': {}", k, v)).collect();
-                write!(f, "{{{}}}", strs.join(", "))
-            }
-        }
-    }
-}
-
-// 實作基本運算，模擬 Python 的動態行為
-impl Value {
-    fn is_truthy(&self) -> bool {
-        match self {
-            Value::Null => false,
-            Value::Int(n) => *n != 0,
-            Value::Float(n) => *n != 0.0,
-            Value::String(s) => !s.is_empty(),
-            Value::Array(arr) => !arr.borrow().is_empty(),
-            Value::Dict(dict) => !dict.borrow().is_empty(),
-        }
-    }
-
-    fn to_int(&self) -> i64 {
-        match self {
-            Value::Int(n) => *n,
-            Value::Float(f) => *f as i64,
-            Value::String(s) => s.parse().unwrap_or(0),
-            _ => 0,
-        }
-    }
-}
-
-// =========================================================
-// 2. 詞法分析 (Lexer)
+// 1. 詞法分析 (Lexer)
 // =========================================================
 
 #[derive(Debug, Clone, PartialEq)]
@@ -213,10 +150,10 @@ impl Lexer {
 }
 
 // =========================================================
-// 3. 語法解析 (Parser) & 中間碼 (Quad)
+// 2. 語法解析 (Parser) & 中間碼 (Quad)
 // =========================================================
 
-#[derive(Clone)] // [修正] 加入 Clone 讓 VM 執行時可避開 E0502 借用問題
+#[derive(Clone)]
 pub struct Quad {
     pub op: String,
     pub arg1: String,
@@ -224,9 +161,10 @@ pub struct Quad {
     pub result: String,
 }
 
+// 支援 Break/Continue 跳躍到標籤
 struct LoopCtx {
-    break_list: Vec<usize>,
-    continue_idx: usize,
+    break_label: String,
+    continue_label: String,
 }
 
 pub struct Parser {
@@ -235,11 +173,19 @@ pub struct Parser {
     pub string_pool: Vec<String>,
     loop_stack: Vec<LoopCtx>,
     t_idx: usize,
+    label_idx: usize, // 新增：用於產生唯一標籤 (L1, L2...)
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
-        Parser { lexer, quads: Vec::new(), string_pool: Vec::new(), loop_stack: Vec::new(), t_idx: 0 }
+        Parser { 
+            lexer, 
+            quads: Vec::new(), 
+            string_pool: Vec::new(), 
+            loop_stack: Vec::new(), 
+            t_idx: 0,
+            label_idx: 0,
+        }
     }
 
     fn cur(&self) -> &Token { self.lexer.cur_token.as_ref().unwrap() }
@@ -258,9 +204,16 @@ impl Parser {
         format!("t{}", self.t_idx)
     }
 
+    // 新增：產生新的標籤名稱
+    fn new_label(&mut self) -> String {
+        self.label_idx += 1;
+        format!("L{}", self.label_idx)
+    }
+
     fn emit(&mut self, op: &str, a1: &str, a2: &str, res: &str) -> usize {
         let idx = self.quads.len();
         self.quads.push(Quad { op: op.to_string(), arg1: a1.to_string(), arg2: a2.to_string(), result: res.to_string() });
+        // 為了讓 CLI 輸出乾淨，編譯器在此仍可顯示進度
         println!("{:03}: {:<12} {:<10} {:<10} {:<10}", idx, op, a1, a2, res);
         idx
     }
@@ -505,38 +458,67 @@ impl Parser {
                 self.consume(); self.expect(TokenType::LParen, "預期 '('");
                 let cond = self.expression();
                 self.expect(TokenType::RParen, "預期 ')'"); self.expect(TokenType::LBrace, "預期 '{'");
-                let jmp_f_idx = self.emit("JMP_F", &cond, "-", "?");
+                
+                // [改動] 建立標籤，不再依賴絕對行號
+                let l_false = self.new_label();
+                self.emit("JMP_F", &cond, "-", &l_false);
+                
                 while self.cur().t_type != TokenType::RBrace && self.cur().t_type != TokenType::Eof { self.statement(); }
                 self.expect(TokenType::RBrace, "預期 '}'");
                 
                 if self.cur().t_type == TokenType::Else {
-                    let jmp_end_idx = self.emit("JMP", "-", "-", "?");
-                    self.quads[jmp_f_idx].result = self.quads.len().to_string();
+                    let l_end = self.new_label();
+                    self.emit("JMP", "-", "-", &l_end);        // True 區塊執行完跳轉到最後
+                    self.emit("LABEL", &l_false, "-", "-");    // False 區塊起點
+                    
                     self.consume(); self.expect(TokenType::LBrace, "預期 '{'");
                     while self.cur().t_type != TokenType::RBrace && self.cur().t_type != TokenType::Eof { self.statement(); }
                     self.expect(TokenType::RBrace, "預期 '}'");
-                    self.quads[jmp_end_idx].result = self.quads.len().to_string();
+                    
+                    self.emit("LABEL", &l_end, "-", "-");      // 整個 If 結束標籤
                 } else {
-                    self.quads[jmp_f_idx].result = self.quads.len().to_string();
+                    self.emit("LABEL", &l_false, "-", "-");    // 沒 Else 的話，False 直接跳到這裡
                 }
             }
             TokenType::While => {
                 self.consume(); self.expect(TokenType::LParen, "預期 '('");
-                let cond_idx = self.quads.len();
+                
+                // [改動] 建立迴圈的起始標籤與結束標籤
+                let l_start = self.new_label();
+                let l_end = self.new_label();
+                self.emit("LABEL", &l_start, "-", "-");        // 迴圈起點
+                
                 let cond = self.expression();
                 self.expect(TokenType::RParen, "預期 ')'"); self.expect(TokenType::LBrace, "預期 '{'");
                 
-                let jmp_f_idx = self.emit("JMP_F", &cond, "-", "?");
-                self.loop_stack.push(LoopCtx { break_list: vec![], continue_idx: cond_idx });
+                self.emit("JMP_F", &cond, "-", &l_end);        // 條件不成立跳離迴圈
+                
+                self.loop_stack.push(LoopCtx { break_label: l_end.clone(), continue_label: l_start.clone() });
                 
                 while self.cur().t_type != TokenType::RBrace && self.cur().t_type != TokenType::Eof { self.statement(); }
-                self.emit("JMP", "-", "-", &cond_idx.to_string());
-                self.expect(TokenType::RBrace, "預期 '}'");
                 
-                let end_idx = self.quads.len();
-                self.quads[jmp_f_idx].result = end_idx.to_string();
-                if let Some(ctx) = self.loop_stack.pop() {
-                    for b_idx in ctx.break_list { self.quads[b_idx].result = end_idx.to_string(); }
+                self.emit("JMP", "-", "-", &l_start);          // 執行完一圈，跳回起點
+                self.emit("LABEL", &l_end, "-", "-");          // 迴圈結束點
+                
+                self.expect(TokenType::RBrace, "預期 '}'");
+                self.loop_stack.pop();
+            }
+            TokenType::Break => {
+                self.consume(); self.expect(TokenType::Semicolon, "預期 ';'");
+                if let Some(ctx) = self.loop_stack.last() {
+                    let lbl = ctx.break_label.clone();
+                    self.emit("JMP", "-", "-", &lbl);
+                } else {
+                    self.error("Break 必須在迴圈內使用");
+                }
+            }
+            TokenType::Continue => {
+                self.consume(); self.expect(TokenType::Semicolon, "預期 ';'");
+                if let Some(ctx) = self.loop_stack.last() {
+                    let lbl = ctx.continue_label.clone();
+                    self.emit("JMP", "-", "-", &lbl);
+                } else {
+                    self.error("Continue 必須在迴圈內使用");
                 }
             }
             TokenType::Return => {
@@ -549,7 +531,6 @@ impl Parser {
                 self.expr_or_assign();
                 self.expect(TokenType::Semicolon, "預期 ';'");
             }
-            // (略過 For, Break, Continue 節省空間，邏輯與 Python 完全對稱)
             _ => self.error("無法辨識的陳述句"),
         }
     }
@@ -581,318 +562,50 @@ impl Parser {
 }
 
 // =========================================================
-// 4. 虛擬機 (Virtual Machine)
+// 3. 程式進入點：編譯並輸出 IR 到檔案
 // =========================================================
-
-struct Frame {
-    vars: HashMap<String, Value>,
-    ret_pc: usize,
-    ret_var: String,
-    incoming_args: Vec<Value>,
-    formal_idx: usize,
-}
-
-pub struct VM {
-    quads: Vec<Quad>,
-    string_pool: Vec<String>,
-    stack: Vec<Frame>,
-}
-
-impl VM {
-    pub fn new(quads: Vec<Quad>, string_pool: Vec<String>) -> Self {
-        VM { quads, string_pool, stack: vec![Frame { vars: HashMap::new(), ret_pc: 0, ret_var: String::new(), incoming_args: vec![], formal_idx: 0 }] }
-    }
-
-    fn get_var(&self, name: &str) -> Value {
-        if name == "-" { return Value::Int(0); }
-        if let Ok(n) = name.parse::<i64>() { return Value::Int(n); }
-        self.stack.last().unwrap().vars.get(name).cloned().unwrap_or(Value::Null)
-    }
-
-    fn set_var(&mut self, name: &str, val: Value) {
-        self.stack.last_mut().unwrap().vars.insert(name.to_string(), val);
-    }
-
-    // [修正] 補齊完整的系統呼叫函數
-    fn system_call(&mut self, f_name: &str, args: &mut Vec<Value>) -> Option<Value> {
-        match f_name {
-            "print" => {
-                let out: Vec<String> = args.iter().map(|v| v.to_string()).collect();
-                println!("[程式輸出] >> {}", out.join(" "));
-                Some(Value::Int(0))
-            }
-            "len" => {
-                let len = match &args[0] {
-                    Value::Array(arr) => arr.borrow().len(),
-                    Value::Dict(dict) => dict.borrow().len(),
-                    Value::String(s) => s.len(),
-                    _ => 0,
-                };
-                Some(Value::Int(len as i64))
-            }
-            "time" => {
-                let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs_f64();
-                Some(Value::Float(t))
-            }
-            "array" => {
-                let len = args[0].to_int() as usize;
-                let default_val = args[1].clone();
-                let arr = vec![default_val; len];
-                Some(Value::Array(Rc::new(RefCell::new(arr))))
-            }
-            "push" => {
-                if let Value::Array(arr) = &args[0] {
-                    arr.borrow_mut().push(args[1].clone());
-                }
-                Some(Value::Null)
-            }
-            "pop" => {
-                if let Value::Array(arr) = &args[0] {
-                    let val = arr.borrow_mut().pop().unwrap_or(Value::Null);
-                    return Some(val);
-                }
-                Some(Value::Null)
-            }
-            "keys" => {
-                if let Value::Dict(dict) = &args[0] {
-                    let keys: Vec<Value> = dict.borrow().keys().map(|k| Value::String(k.clone())).collect();
-                    return Some(Value::Array(Rc::new(RefCell::new(keys))));
-                }
-                Some(Value::Null)
-            }
-            "has_key" => {
-                if let Value::Dict(dict) = &args[0] {
-                    let has = dict.borrow().contains_key(&args[1].to_string());
-                    return Some(Value::Int(if has { 1 } else { 0 }));
-                }
-                Some(Value::Int(0))
-            }
-            "remove" => {
-                if let Value::Dict(dict) = &args[0] {
-                    dict.borrow_mut().remove(&args[1].to_string());
-                }
-                Some(Value::Null)
-            }
-            "typeof" => {
-                let t_str = match &args[0] {
-                    Value::Null => "null",
-                    Value::Int(_) => "int",
-                    Value::Float(_) => "float",
-                    Value::String(_) => "string",
-                    Value::Array(_) => "array",
-                    Value::Dict(_) => "dict",
-                };
-                Some(Value::String(t_str.to_string()))
-            }
-            "int" => {
-                Some(Value::Int(args[0].to_int()))
-            }
-            "str" => {
-                Some(Value::String(args[0].to_string()))
-            }
-            "ord" => {
-                if let Value::String(s) = &args[0] {
-                    if let Some(c) = s.chars().next() {
-                        return Some(Value::Int(c as u32 as i64));
-                    }
-                }
-                Some(Value::Int(0))
-            }
-            "chr" => {
-                let code = args[0].to_int() as u32;
-                if let Some(c) = std::char::from_u32(code) {
-                    return Some(Value::String(c.to_string()));
-                }
-                Some(Value::String(String::new()))
-            }
-            "random" => {
-                let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-                let r = (t % 1000) as f64 / 1000.0;
-                Some(Value::Float(r))
-            }
-            "input" => {
-                if !args.is_empty() {
-                    print!("{}", args[0].to_string());
-                    io::stdout().flush().unwrap();
-                }
-                let mut input = String::new();
-                io::stdin().read_line(&mut input).unwrap();
-                Some(Value::String(input.trim_end().to_string()))
-            }
-            "exit" => {
-                let code = if !args.is_empty() { args[0].to_int() as i32 } else { 0 };
-                process::exit(code);
-            }
-            _ => None,
-        }
-    }
-
-    pub fn run(&mut self) {
-        let mut pc = 0;
-        let mut param_stack: Vec<Value> = Vec::new();
-        let mut func_map = HashMap::new();
-        for (i, q) in self.quads.iter().enumerate() {
-            if q.op == "FUNC_BEG" { func_map.insert(q.arg1.clone(), i + 1); }
-        }
-
-        println!("\n=== VM 執行開始 ===");
-        while pc < self.quads.len() {
-            // [修正] clone 取代 immutable reference 解決 E0502 問題
-            let q = self.quads[pc].clone(); 
-            
-            match q.op.as_str() {
-                "FUNC_BEG" => { while self.quads[pc].op != "FUNC_END" { pc += 1; } }
-                "IMM" => { let val = q.arg1.parse().unwrap(); self.set_var(&q.result, Value::Int(val)); }
-                "LOAD_STR" => { let idx: usize = q.arg1.parse().unwrap(); let s = self.string_pool[idx].clone(); self.set_var(&q.result, Value::String(s)); }
-                "ADD" => {
-                    let v = Value::Int(self.get_var(&q.arg1).to_int() + self.get_var(&q.arg2).to_int());
-                    self.set_var(&q.result, v);
-                }
-                "SUB" => {
-                    let v = Value::Int(self.get_var(&q.arg1).to_int() - self.get_var(&q.arg2).to_int());
-                    self.set_var(&q.result, v);
-                }
-                "MUL" => {
-                    let v = Value::Int(self.get_var(&q.arg1).to_int() * self.get_var(&q.arg2).to_int());
-                    self.set_var(&q.result, v);
-                }
-                "CMP_EQ" => {
-                    let res = if self.get_var(&q.arg1).to_int() == self.get_var(&q.arg2).to_int() { 1 } else { 0 };
-                    self.set_var(&q.result, Value::Int(res));
-                }
-                "JMP" => pc = q.result.parse::<usize>().unwrap() - 1,
-                "JMP_F" => {
-                    if !self.get_var(&q.arg1).is_truthy() { pc = q.result.parse::<usize>().unwrap() - 1; }
-                }
-                "NEW_ARR" => self.set_var(&q.result, Value::Array(Rc::new(RefCell::new(Vec::new())))),
-                "NEW_DICT" => self.set_var(&q.result, Value::Dict(Rc::new(RefCell::new(HashMap::new())))),
-                "SET_ITEM" => {
-                    let obj = self.get_var(&q.arg1);
-                    let key = self.get_var(&q.arg2);
-                    let val = self.get_var(&q.result);
-                    match obj {
-                        Value::Array(arr) => arr.borrow_mut()[key.to_int() as usize] = val,
-                        Value::Dict(dict) => { dict.borrow_mut().insert(key.to_string(), val); },
-                        _ => panic!("無法設定屬性"),
-                    }
-                }
-                "GET_ITEM" => {
-                    let obj = self.get_var(&q.arg1);
-                    let key = self.get_var(&q.arg2);
-                    let res = match obj {
-                        Value::Array(arr) => arr.borrow()[key.to_int() as usize].clone(),
-                        Value::Dict(dict) => dict.borrow().get(&key.to_string()).cloned().unwrap_or(Value::Null),
-                        _ => Value::Null,
-                    };
-                    self.set_var(&q.result, res);
-                }
-                "PARAM" => param_stack.push(self.get_var(&q.arg1)),
-                "CALL" => {
-                    let p_count: usize = q.arg2.parse().unwrap();
-                    
-                    //[修正] 正確解析函數名稱
-                    // 如果變數中存有字串（例如從變數呼叫函數），則優先使用變數值；否則直接視為明文名稱
-                    let mut f_name = q.arg1.clone();
-                    if let Value::String(s) = self.get_var(&q.arg1) {
-                        f_name = s;
-                    }
-
-                    let mut args = if p_count > 0 {
-                        let split_idx = param_stack.len() - p_count;
-                        param_stack.split_off(split_idx)
-                    } else { vec![] };
-
-                    if let Some(ret_val) = self.system_call(&f_name, &mut args) {
-                        self.set_var(&q.result, ret_val);
-                        pc += 1;
-                        continue;
-                    }
-
-                    let target_pc = *func_map.get(&f_name).expect(&format!("找不到函數: {}", f_name));
-                    self.stack.push(Frame { vars: HashMap::new(), ret_pc: pc + 1, ret_var: q.result.clone(), incoming_args: args, formal_idx: 0 });
-                    pc = target_pc;
-                    continue;
-                }
-                "FORMAL" => {
-                    // [修正] 移除了警告的 mut
-                    let frame = self.stack.last_mut().unwrap();
-                    let arg_val = frame.incoming_args[frame.formal_idx].clone();
-                    frame.vars.insert(q.arg1.clone(), arg_val);
-                    frame.formal_idx += 1;
-                }
-                "RET_VAL" => {
-                    let ret_val = self.get_var(&q.arg1);
-                    let frame = self.stack.pop().unwrap();
-                    self.set_var(&frame.ret_var, ret_val);
-                    pc = frame.ret_pc;
-                    continue;
-                }
-                "STORE" => {
-                    // 把 arg1 的值存到 result 變數中 (例如 arr = t5)
-                    let val = self.get_var(&q.arg1);
-                    self.set_var(&q.result, val);
-                }
-                "FUNC_END" => {
-                    // 函數自然結束（沒有遇到 return）時的隱式返回
-                    if self.stack.len() > 1 {
-                        let frame = self.stack.pop().unwrap();
-                        self.set_var(&frame.ret_var, Value::Null);
-                        pc = frame.ret_pc;
-                        continue; // 跳過 pc += 1，直接跳回呼叫處
-                    }
-                }
-                "APPEND_ITEM" => {
-                    // 初始化陣列或 [1, 2, 3] 語法會用到的操作
-                    let arr = self.get_var(&q.arg1);
-                    let val = self.get_var(&q.result);
-                    if let Value::Array(a) = arr {
-                        a.borrow_mut().push(val);
-                    }
-                }
-                "INIT_ARR" => {
-                    // 處理 [val; size] 的初始化語法
-                    let val = self.get_var(&q.arg1);
-                    let size = self.get_var(&q.arg2).to_int() as usize;
-                    let arr = vec![val; size];
-                    self.set_var(&q.result, Value::Array(Rc::new(RefCell::new(arr))));
-                }
-                "DIV" => {
-                    let l = self.get_var(&q.arg1).to_int();
-                    let r = self.get_var(&q.arg2).to_int();
-                    let res = if r != 0 { l / r } else { 0 };
-                    self.set_var(&q.result, Value::Int(res));
-                }
-                "CMP_LT" => {
-                    let res = if self.get_var(&q.arg1).to_int() < self.get_var(&q.arg2).to_int() { 1 } else { 0 };
-                    self.set_var(&q.result, Value::Int(res));
-                }
-                "CMP_GT" => {
-                    let res = if self.get_var(&q.arg1).to_int() > self.get_var(&q.arg2).to_int() { 1 } else { 0 };
-                    self.set_var(&q.result, Value::Int(res));
-                }
-                _ => {} // 其他實作省略
-            }
-            pc += 1;
-        }
-        println!("=== VM 執行完畢 ===");
-    }
-}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    // 檢查參數數量，現在只需要至少 2 個參數 (執行檔 + 來源檔)
     if args.len() < 2 {
-        println!("用法: {} <source_file>", args[0]);
+        println!("用法: {} <source_file.p0> [output_file.ir0]", args[0]);
         process::exit(1);
     }
-    let source_code = fs::read_to_string(&args[1]).expect("無法開啟檔案");
     
-    println!("編譯器生成的中間碼 (PC: Quadruples):");
-    println!("{:-<44}", "");
+    let source_file = &args[1];
     
+    // 決定輸出檔名：有提供就用提供的，沒提供就把來源檔名換成 .ir0
+    let output_file = if args.len() >= 3 {
+        args[2].clone()
+    } else {
+        std::path::Path::new(source_file)
+            .with_extension("ir0")
+            .to_string_lossy()
+            .into_owned()
+    };
+    
+    let source_code = fs::read_to_string(source_file).expect("無法開啟來源檔案");
+    
+    println!("=== 開始編譯 ===");
     let lexer = Lexer::new(source_code);
     let mut parser = Parser::new(lexer);
     parser.parse_program();
     
-    let mut vm = VM::new(parser.quads, parser.string_pool);
-    vm.run();
+    // 建立輸出檔案，使用我們剛剛決定好的 output_file
+    let mut out_file = File::create(&output_file).expect("無法建立輸出檔案");
+    
+    // 輸出字串池
+    writeln!(out_file, "===STRINGS===").unwrap();
+    for s in &parser.string_pool {
+        writeln!(out_file, "{:?}", s).unwrap();
+    }
+    
+    // 輸出四元組
+    writeln!(out_file, "===QUADS===").unwrap();
+    for q in &parser.quads {
+        writeln!(out_file, "{}\t{}\t{}\t{}", q.op, q.arg1, q.arg2, q.result).unwrap();
+    }
+    
+    println!("\n✅ 編譯成功！IR 已匯出至: {}", output_file);
 }

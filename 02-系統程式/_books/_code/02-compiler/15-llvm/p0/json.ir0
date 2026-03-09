@@ -1,0 +1,83 @@
+===STRINGS===
+"scores"
+"=== 建立複雜的 JSON 資料結構 ==="
+"name"
+"Alice"
+"age"
+"scores"
+"is_active"
+"使用者姓名:"
+"name"
+"第一筆成績是:"
+"=== 開始修改資料 ==="
+"scores"
+"email"
+"alice@example.com"
+"修改後的成績陣列:"
+"scores"
+"修改後的使用者物件:"
+===QUADS===
+FUNC_BEG	get_first_score	-	-
+FORMAL	user_obj	-	-
+LOAD_STR	0	-	t1
+GET_ITEM	user_obj	t1	t2
+IMM	0	-	t3
+GET_ITEM	t2	t3	t4
+RET_VAL	t4	-	-
+FUNC_END	get_first_score	-	-
+LOAD_STR	1	-	t5
+PARAM	t5	-	-
+CALL	print	1	t6
+NEW_DICT	-	-	t7
+LOAD_STR	2	-	t8
+LOAD_STR	3	-	t9
+SET_ITEM	t7	t8	t9
+LOAD_STR	4	-	t10
+IMM	25	-	t11
+SET_ITEM	t7	t10	t11
+LOAD_STR	5	-	t12
+IMM	100	-	t14
+NEW_ARR	-	-	t13
+APPEND_ITEM	t13	-	t14
+IMM	95	-	t15
+APPEND_ITEM	t13	-	t15
+IMM	80	-	t16
+APPEND_ITEM	t13	-	t16
+SET_ITEM	t7	t12	t13
+LOAD_STR	6	-	t17
+IMM	1	-	t18
+SET_ITEM	t7	t17	t18
+STORE	t7	-	user
+LOAD_STR	7	-	t19
+PARAM	t19	-	-
+LOAD_STR	8	-	t20
+GET_ITEM	user	t20	t21
+PARAM	t21	-	-
+CALL	print	2	t22
+LOAD_STR	9	-	t23
+PARAM	t23	-	-
+PARAM	user	-	-
+CALL	get_first_score	1	t24
+PARAM	t24	-	-
+CALL	print	2	t25
+LOAD_STR	10	-	t26
+PARAM	t26	-	-
+CALL	print	1	t27
+LOAD_STR	11	-	t28
+IMM	2	-	t29
+IMM	99	-	t30
+GET_ITEM	user	t28	t31
+SET_ITEM	t31	t29	t30
+LOAD_STR	12	-	t32
+LOAD_STR	13	-	t33
+SET_ITEM	user	t32	t33
+LOAD_STR	14	-	t34
+PARAM	t34	-	-
+LOAD_STR	15	-	t35
+GET_ITEM	user	t35	t36
+PARAM	t36	-	-
+CALL	print	2	t37
+LOAD_STR	16	-	t38
+PARAM	t38	-	-
+PARAM	user	-	-
+CALL	print	2	t39

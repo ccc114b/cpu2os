@@ -1,0 +1,313 @@
+===STRINGS===
+"--- 1. 測試陣列相關 (array, len, push, pop) ---"
+"初始化 array(3, 0):"
+"陣列長度 len(arr):"
+"push 兩次後:"
+"新陣列長度:"
+"pop() 彈出的值:"
+"pop 後的陣列:"
+""
+"--- 2. 測試字典相關 (keys, has_key, remove) ---"
+"name"
+"Alice"
+"age"
+"city"
+"Taipei"
+"初始字典:"
+"字典長度 len(d):"
+"所有的鍵 keys(d):"
+"name"
+"job"
+"是否包含 'name'?"
+"是否包含 'job'?"
+"age"
+"remove(d, 'age') 之後的字典:"
+""
+"--- 3. 測試型別與轉換 (typeof, int, str) ---"
+"100"
+"k"
+"typeof(42)  :"
+"typeof('100'):"
+"typeof([1]) :"
+"typeof({k}) :"
+"int('100') + 50 ="
+" 是一個字串"
+"str(42) 串接結果:"
+""
+"--- 4. 測試字元與 ASCII 轉換 (ord, chr) ---"
+"A"
+"ord('A') 的 ASCII 碼 ="
+"chr(66) 還原的字元 ="
+""
+"--- 5. 測試系統狀態 (time, random) ---"
+"當前時間戳 time():"
+"產生的亂數 random():"
+""
+">>> 開始執行系統函數測試 <<<"
+""
+"--- 6. 測試 I/O 與強制終止 (input, exit) ---"
+"請輸入任意文字 (或直接按 Enter 繼續): "
+"你剛才輸入的是:"
+"準備呼叫 exit(0) 結束虛擬機..."
+"這行永遠不應該被印出來！因為 VM 已經終止了！"
+===QUADS===
+FUNC_BEG	test_array	-	-
+LOAD_STR	0	-	t1
+PARAM	t1	-	-
+CALL	print	1	t2
+IMM	3	-	t3
+PARAM	t3	-	-
+IMM	0	-	t4
+PARAM	t4	-	-
+CALL	array	2	t5
+STORE	t5	-	arr
+LOAD_STR	1	-	t6
+PARAM	t6	-	-
+PARAM	arr	-	-
+CALL	print	2	t7
+LOAD_STR	2	-	t8
+PARAM	t8	-	-
+PARAM	arr	-	-
+CALL	len	1	t9
+PARAM	t9	-	-
+CALL	print	2	t10
+PARAM	arr	-	-
+IMM	99	-	t11
+PARAM	t11	-	-
+CALL	push	2	t12
+PARAM	arr	-	-
+IMM	100	-	t13
+PARAM	t13	-	-
+CALL	push	2	t14
+LOAD_STR	3	-	t15
+PARAM	t15	-	-
+PARAM	arr	-	-
+CALL	print	2	t16
+LOAD_STR	4	-	t17
+PARAM	t17	-	-
+PARAM	arr	-	-
+CALL	len	1	t18
+PARAM	t18	-	-
+CALL	print	2	t19
+PARAM	arr	-	-
+CALL	pop	1	t20
+STORE	t20	-	last_val
+LOAD_STR	5	-	t21
+PARAM	t21	-	-
+PARAM	last_val	-	-
+CALL	print	2	t22
+LOAD_STR	6	-	t23
+PARAM	t23	-	-
+PARAM	arr	-	-
+CALL	print	2	t24
+LOAD_STR	7	-	t25
+PARAM	t25	-	-
+CALL	print	1	t26
+FUNC_END	test_array	-	-
+FUNC_BEG	test_dict	-	-
+LOAD_STR	8	-	t27
+PARAM	t27	-	-
+CALL	print	1	t28
+NEW_DICT	-	-	t29
+LOAD_STR	9	-	t30
+LOAD_STR	10	-	t31
+SET_ITEM	t29	t30	t31
+LOAD_STR	11	-	t32
+IMM	25	-	t33
+SET_ITEM	t29	t32	t33
+LOAD_STR	12	-	t34
+LOAD_STR	13	-	t35
+SET_ITEM	t29	t34	t35
+STORE	t29	-	d
+LOAD_STR	14	-	t36
+PARAM	t36	-	-
+PARAM	d	-	-
+CALL	print	2	t37
+LOAD_STR	15	-	t38
+PARAM	t38	-	-
+PARAM	d	-	-
+CALL	len	1	t39
+PARAM	t39	-	-
+CALL	print	2	t40
+PARAM	d	-	-
+CALL	keys	1	t41
+STORE	t41	-	k_list
+LOAD_STR	16	-	t42
+PARAM	t42	-	-
+PARAM	k_list	-	-
+CALL	print	2	t43
+PARAM	d	-	-
+LOAD_STR	17	-	t44
+PARAM	t44	-	-
+CALL	has_key	2	t45
+STORE	t45	-	has_name
+PARAM	d	-	-
+LOAD_STR	18	-	t46
+PARAM	t46	-	-
+CALL	has_key	2	t47
+STORE	t47	-	has_job
+LOAD_STR	19	-	t48
+PARAM	t48	-	-
+PARAM	has_name	-	-
+CALL	print	2	t49
+LOAD_STR	20	-	t50
+PARAM	t50	-	-
+PARAM	has_job	-	-
+CALL	print	2	t51
+PARAM	d	-	-
+LOAD_STR	21	-	t52
+PARAM	t52	-	-
+CALL	remove	2	t53
+LOAD_STR	22	-	t54
+PARAM	t54	-	-
+PARAM	d	-	-
+CALL	print	2	t55
+LOAD_STR	23	-	t56
+PARAM	t56	-	-
+CALL	print	1	t57
+FUNC_END	test_dict	-	-
+FUNC_BEG	test_type_and_cast	-	-
+LOAD_STR	24	-	t58
+PARAM	t58	-	-
+CALL	print	1	t59
+IMM	42	-	t60
+STORE	t60	-	n
+LOAD_STR	25	-	t61
+STORE	t61	-	s
+IMM	1	-	t63
+NEW_ARR	-	-	t62
+APPEND_ITEM	t62	-	t63
+IMM	2	-	t64
+APPEND_ITEM	t62	-	t64
+STORE	t62	-	a
+NEW_DICT	-	-	t65
+LOAD_STR	26	-	t66
+IMM	1	-	t67
+SET_ITEM	t65	t66	t67
+STORE	t65	-	d
+LOAD_STR	27	-	t68
+PARAM	t68	-	-
+PARAM	n	-	-
+CALL	typeof	1	t69
+PARAM	t69	-	-
+CALL	print	2	t70
+LOAD_STR	28	-	t71
+PARAM	t71	-	-
+PARAM	s	-	-
+CALL	typeof	1	t72
+PARAM	t72	-	-
+CALL	print	2	t73
+LOAD_STR	29	-	t74
+PARAM	t74	-	-
+PARAM	a	-	-
+CALL	typeof	1	t75
+PARAM	t75	-	-
+CALL	print	2	t76
+LOAD_STR	30	-	t77
+PARAM	t77	-	-
+PARAM	d	-	-
+CALL	typeof	1	t78
+PARAM	t78	-	-
+CALL	print	2	t79
+PARAM	s	-	-
+CALL	int	1	t80
+IMM	50	-	t81
+ADD	t80	t81	t82
+STORE	t82	-	parsed
+LOAD_STR	31	-	t83
+PARAM	t83	-	-
+PARAM	parsed	-	-
+CALL	print	2	t84
+PARAM	n	-	-
+CALL	str	1	t85
+LOAD_STR	32	-	t86
+ADD	t85	t86	t87
+STORE	t87	-	str_val
+LOAD_STR	33	-	t88
+PARAM	t88	-	-
+PARAM	str_val	-	-
+CALL	print	2	t89
+LOAD_STR	34	-	t90
+PARAM	t90	-	-
+CALL	print	1	t91
+FUNC_END	test_type_and_cast	-	-
+FUNC_BEG	test_char_conversion	-	-
+LOAD_STR	35	-	t92
+PARAM	t92	-	-
+CALL	print	1	t93
+LOAD_STR	36	-	t94
+STORE	t94	-	char_A
+PARAM	char_A	-	-
+CALL	ord	1	t95
+STORE	t95	-	code
+LOAD_STR	37	-	t96
+PARAM	t96	-	-
+PARAM	code	-	-
+CALL	print	2	t97
+IMM	1	-	t98
+ADD	code	t98	t99
+PARAM	t99	-	-
+CALL	chr	1	t100
+STORE	t100	-	char_B
+LOAD_STR	38	-	t101
+PARAM	t101	-	-
+PARAM	char_B	-	-
+CALL	print	2	t102
+LOAD_STR	39	-	t103
+PARAM	t103	-	-
+CALL	print	1	t104
+FUNC_END	test_char_conversion	-	-
+FUNC_BEG	test_system	-	-
+LOAD_STR	40	-	t105
+PARAM	t105	-	-
+CALL	print	1	t106
+CALL	time	0	t107
+STORE	t107	-	t1
+LOAD_STR	41	-	t108
+PARAM	t108	-	-
+PARAM	t1	-	-
+CALL	print	2	t109
+CALL	random	0	t110
+STORE	t110	-	r
+LOAD_STR	42	-	t111
+PARAM	t111	-	-
+PARAM	r	-	-
+CALL	print	2	t112
+LOAD_STR	43	-	t113
+PARAM	t113	-	-
+CALL	print	1	t114
+FUNC_END	test_system	-	-
+FUNC_BEG	main	-	-
+LOAD_STR	44	-	t115
+PARAM	t115	-	-
+CALL	print	1	t116
+LOAD_STR	45	-	t117
+PARAM	t117	-	-
+CALL	print	1	t118
+CALL	test_array	0	t119
+CALL	test_dict	0	t120
+CALL	test_type_and_cast	0	t121
+CALL	test_char_conversion	0	t122
+CALL	test_system	0	t123
+LOAD_STR	46	-	t124
+PARAM	t124	-	-
+CALL	print	1	t125
+LOAD_STR	47	-	t126
+PARAM	t126	-	-
+CALL	input	1	t127
+STORE	t127	-	user_in
+LOAD_STR	48	-	t128
+PARAM	t128	-	-
+PARAM	user_in	-	-
+CALL	print	2	t129
+LOAD_STR	49	-	t130
+PARAM	t130	-	-
+CALL	print	1	t131
+IMM	0	-	t132
+PARAM	t132	-	-
+CALL	exit	1	t133
+LOAD_STR	50	-	t134
+PARAM	t134	-	-
+CALL	print	1	t135
+FUNC_END	main	-	-
+CALL	main	0	t136
