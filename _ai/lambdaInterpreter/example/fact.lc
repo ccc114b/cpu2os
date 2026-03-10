@@ -1,0 +1,28 @@
+(* --- 基礎邏輯 --- *)
+TRUE  = \t.\f. t ;
+FALSE = \t.\f. f ;
+ISZERO = \n. n (\x. FALSE) TRUE ;
+
+(* --- 數值運算 --- *)
+ZERO  = \f.\x. x ;
+ONE   = \f.\x. f x ;
+TWO   = \f.\x. f (f x) ;
+THREE = \f.\x. f (f (f x)) ;
+
+(* 乘法: MULT m n = m * n *)
+MULT = \m.\n.\f. m (n f) ;
+
+(* 前驅函數 (n-1): 這是 Church Numerals 中最複雜的基礎運算 *)
+PRED = \n.\f.\x. n (\g.\h. h (g f)) (\u. x) (\u. u) ;
+
+(* --- 遞迴工具 (Y Combinator) --- *)
+(* 因為 Lambda Calculus 沒有具名遞迴，必須透過 Y 組合子實現 *)
+Y = \f. (\x. f (x x)) (\x. f (x x)) ;
+
+(* --- 階乘定義 --- *)
+(* FACT = \f.\n. IF (ISZERO n) ONE (MULT n (f (PRED n))) *)
+FACT_GEN = \f.\n. (ISZERO n) ONE (MULT n (f (PRED n))) ;
+FACT = Y FACT_GEN ;
+
+(* --- 執行計算: 3! --- *)
+FACT THREE

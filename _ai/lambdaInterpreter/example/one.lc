@@ -1,0 +1,12 @@
+(* 定義邏輯 *)
+TRUE  = \t.\f. t ;
+FALSE = \t.\f. f ;
+AND   = \p.\q. p q p ;
+
+(* 定義 Church Numerals *)
+ZERO = \f.\x. x ;
+ONE  = \f.\x. f x ;
+SUCC = \n.\f.\x. f (n f x) ;
+
+(* 計算 SUCC ZERO (即 1) *)
+SUCC ZERO
