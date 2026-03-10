@@ -1,0 +1,28 @@
+fn factorial(n: int) -> int {
+    // n 如果不等於 0 就是 True
+    if n {
+        return n * factorial(n - 1);
+    } else {
+        return 1;
+    }
+}
+
+fn greet(name: str) -> str {
+    let prefix: str = "Hello, ";
+    let message: str = prefix + name; // 強型態字串相加
+    print(message);
+    return message;
+}
+
+fn main() -> int {
+    let result: int = factorial(5);
+    // 利用強型態特性：先將 int 轉成 str，再用 + 進行字串拼接
+    let output: str = "result=" + to_str(result);
+    print(output);
+    // 如果 result 不是 0
+    if result {
+        greet("Master!");
+    }
+    
+    return result;
+}
