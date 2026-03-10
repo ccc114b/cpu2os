@@ -1,0 +1,36 @@
+===STRINGS===
+"fact(5) ="
+"10 + 20 ="
+", 很簡單！"
+===QUADS===
+FUNC_BEG	fact	-	-
+FORMAL	n	-	-
+IMM	2	-	t1
+CMP_LT	n	t1	t2
+JMP_F	t2	-	L1
+IMM	1	-	t3
+RET_VAL	t3	-	-
+LABEL	L1	-	-
+IMM	1	-	t4
+SUB	n	t4	t5
+PARAM	t5	-	-
+CALL	fact	1	t6
+MUL	n	t6	t7
+RET_VAL	t7	-	-
+FUNC_END	fact	-	-
+LOAD_STR	0	-	t8
+PARAM	t8	-	-
+IMM	5	-	t9
+PARAM	t9	-	-
+CALL	fact	1	t10
+PARAM	t10	-	-
+CALL	print	2	t11
+LOAD_STR	1	-	t12
+PARAM	t12	-	-
+IMM	10	-	t13
+IMM	20	-	t14
+ADD	t13	t14	t15
+PARAM	t15	-	-
+LOAD_STR	2	-	t16
+PARAM	t16	-	-
+CALL	print	3	t17
