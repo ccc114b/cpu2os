@@ -10,3 +10,15 @@ Fibonacci = lambda n: \
 
 print('Fibonacci(8)=', Fibonacci(8))
 
+"""
+n=8 bind
+
+lambda:Fibonacci(n-1)+Fibonacci(n-2)
+
+def f():
+   return Fibonacci(8-1)+Fibonacci(8-2)
+
+print(f)
+print(f())
+"""
+
