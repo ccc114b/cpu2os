@@ -1,0 +1,16 @@
+// 定義創建長度為 n 且全為 0 的陣列函數
+func create_zeros(n) {
+    arr =[];                     // 初始化空陣列
+    
+    // 迴圈 n 次，每次把 [0] 拼接到 arr 後面
+    // 注意：語法中沒有 i++ 或是 +=，所以要寫 i = i + 1
+    for (i = 0; i < n; i = i + 1) {
+        arr = arr + [0];
+    }
+    
+    return arr;
+}
+
+// 測試呼叫函數
+my_array = create_zeros(5);
+print(my_array); // 預期輸出: [0, 0, 0, 0, 0]
