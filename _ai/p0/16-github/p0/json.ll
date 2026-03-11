@@ -60,9 +60,9 @@ declare ptr @p0_exit(ptr)
 
 define ptr @get_first_score(ptr %arg_user_obj) {
 entry:
+  %ptr_t1 = alloca ptr
   %ptr_t2 = alloca ptr
   %ptr_t4 = alloca ptr
-  %ptr_t1 = alloca ptr
   %ptr_user_obj = alloca ptr
   %ptr_t3 = alloca ptr
   store ptr %arg_user_obj, ptr %ptr_user_obj
@@ -86,42 +86,42 @@ entry:
 
 define ptr @__init__() {
 entry:
-  %ptr_t19 = alloca ptr
-  %ptr_t16 = alloca ptr
-  %ptr_t13 = alloca ptr
+  %ptr_t28 = alloca ptr
+  %ptr_t24 = alloca ptr
+  %ptr_t18 = alloca ptr
+  %ptr_t11 = alloca ptr
+  %ptr_t36 = alloca ptr
+  %ptr_user = alloca ptr
   %ptr_t23 = alloca ptr
   %ptr_t38 = alloca ptr
-  %ptr_t33 = alloca ptr
-  %ptr_t8 = alloca ptr
-  %ptr_t29 = alloca ptr
-  %ptr_user = alloca ptr
-  %ptr_t32 = alloca ptr
-  %ptr_t7 = alloca ptr
-  %ptr_t27 = alloca ptr
-  %ptr_t28 = alloca ptr
-  %ptr_t30 = alloca ptr
-  %ptr_t39 = alloca ptr
-  %ptr_t21 = alloca ptr
-  %ptr_t31 = alloca ptr
-  %ptr_t34 = alloca ptr
-  %ptr_t35 = alloca ptr
   %ptr_t9 = alloca ptr
-  %ptr_t22 = alloca ptr
-  %ptr_t6 = alloca ptr
-  %ptr_t14 = alloca ptr
-  %ptr_t18 = alloca ptr
-  %ptr_t26 = alloca ptr
-  %ptr_t11 = alloca ptr
+  %ptr_t35 = alloca ptr
   %ptr_t17 = alloca ptr
-  %ptr_t24 = alloca ptr
-  %ptr_t36 = alloca ptr
-  %ptr_t10 = alloca ptr
-  %ptr_t15 = alloca ptr
-  %ptr_t37 = alloca ptr
-  %ptr_t12 = alloca ptr
-  %ptr_t20 = alloca ptr
+  %ptr_t33 = alloca ptr
+  %ptr_t19 = alloca ptr
+  %ptr_t21 = alloca ptr
+  %ptr_t16 = alloca ptr
   %ptr_t25 = alloca ptr
+  %ptr_t29 = alloca ptr
   %ptr_t5 = alloca ptr
+  %ptr_t32 = alloca ptr
+  %ptr_t37 = alloca ptr
+  %ptr_t13 = alloca ptr
+  %ptr_t15 = alloca ptr
+  %ptr_t14 = alloca ptr
+  %ptr_t7 = alloca ptr
+  %ptr_t6 = alloca ptr
+  %ptr_t10 = alloca ptr
+  %ptr_t12 = alloca ptr
+  %ptr_t22 = alloca ptr
+  %ptr_t26 = alloca ptr
+  %ptr_t39 = alloca ptr
+  %ptr_t27 = alloca ptr
+  %ptr_t34 = alloca ptr
+  %ptr_t8 = alloca ptr
+  %ptr_t20 = alloca ptr
+  %ptr_t30 = alloca ptr
+  %ptr_t31 = alloca ptr
   %tmp.1 = call ptr @rt_load_str(ptr @str.1)
   store ptr %tmp.1, ptr %ptr_t5
   %tmp.2 = load ptr, ptr %ptr_t5

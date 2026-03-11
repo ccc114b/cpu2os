@@ -5,4 +5,4 @@ def If(cond):
 def Max(a,b):
     return If(a>b)(lambda:a)(lambda:b)
 
-print('Max(3)(5)=', Max(3,5))
+print('Max(3,5)=', Max(3,5))

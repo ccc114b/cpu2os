@@ -46,14 +46,14 @@ declare ptr @p0_exit(ptr)
 
 define ptr @fact(ptr %arg_n) {
 entry:
-  %ptr_t3 = alloca ptr
-  %ptr_t1 = alloca ptr
-  %ptr_t5 = alloca ptr
-  %ptr_n = alloca ptr
   %ptr_t6 = alloca ptr
   %ptr_t7 = alloca ptr
   %ptr_t2 = alloca ptr
+  %ptr_n = alloca ptr
+  %ptr_t3 = alloca ptr
+  %ptr_t1 = alloca ptr
   %ptr_t4 = alloca ptr
+  %ptr_t5 = alloca ptr
   store ptr %arg_n, ptr %ptr_n
   %tmp.1 = call ptr @rt_imm(i64 2)
   store ptr %tmp.1, ptr %ptr_t1
@@ -91,16 +91,16 @@ L1:
 
 define ptr @__init__() {
 entry:
-  %ptr_t11 = alloca ptr
-  %ptr_t17 = alloca ptr
+  %ptr_t10 = alloca ptr
+  %ptr_t13 = alloca ptr
+  %ptr_t9 = alloca ptr
+  %ptr_t16 = alloca ptr
   %ptr_t12 = alloca ptr
   %ptr_t14 = alloca ptr
   %ptr_t8 = alloca ptr
-  %ptr_t13 = alloca ptr
-  %ptr_t10 = alloca ptr
-  %ptr_t9 = alloca ptr
   %ptr_t15 = alloca ptr
-  %ptr_t16 = alloca ptr
+  %ptr_t11 = alloca ptr
+  %ptr_t17 = alloca ptr
   %tmp.1 = call ptr @rt_load_str(ptr @str.0)
   store ptr %tmp.1, ptr %ptr_t8
   %tmp.2 = load ptr, ptr %ptr_t8
