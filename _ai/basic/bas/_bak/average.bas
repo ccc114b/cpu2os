@@ -1,0 +1,10 @@
+10  LET S = 0
+20  LET C = 0
+30  READ X
+40  IF X = -999 THEN 80
+50  LET S = S + X
+60  LET C = C + 1
+70  GOTO 30
+80  PRINT "平均值為：", S / C
+90  DATA 10, 25, 30, 45, 100, -999
+100 END

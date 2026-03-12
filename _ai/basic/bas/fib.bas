@@ -1,0 +1,10 @@
+10  LET A = 0
+20  LET B = 1
+30  LET C = 1
+40  PRINT A
+50  LET T = A + B
+60  LET A = B
+70  LET B = T
+80  LET C = C + 1
+90  IF C <= 10 THEN 40
+100 END
