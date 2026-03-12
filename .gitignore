@@ -1,3 +1,7 @@
+# rust
+release/
+debug/
+
 # 忽略 bin 資料夾
 bin/
 
